@@ -13,6 +13,7 @@ require 'timeout'
       @session_id = nil
       @server_url = nil
       @instance = nil
+      @proxy_uri = nil
       @@API_VERSION = api_version
       @@LOGIN_PATH = "/services/Soap/u/#{@@API_VERSION}"
       @@PATH_PREFIX = "/services/async/#{@@API_VERSION}/"
@@ -25,12 +26,13 @@ require 'timeout'
     def login()
       client_type = @client.class.to_s
       case client_type
-      when "Restforce::Data::Client"
-        @session_id=@client.options[:oauth_token]
-        @server_url=@client.options[:instance_url]
-      else
-        @session_id=@client.oauth_token
-        @server_url=@client.instance_url
+        when "Restforce::Data::Client"
+          @session_id=@client.options[:oauth_token]
+          @server_url=@client.options[:instance_url]
+          @proxy_uri=URI.parse(@client.options[:proxy_uri]) if @client.options.has_key? :proxy_uri
+        else
+          @session_id=@client.oauth_token
+          @server_url=@client.instance_url
       end
       @instance = parse_instance()
       @@INSTANCE_HOST = "#{@instance}.salesforce.com"
@@ -67,7 +69,7 @@ require 'timeout'
     end
 
     def https(host)
-      req = Net::HTTP.new(host, 443)
+      req = @proxy_uri ? Net::HTTP.new(host, 443, @proxy_uri.host, @proxy_uri.port, @proxy_uri.userinfo.split(":")[0], @proxy_uri.userinfo.split(":")[1]) : Net::HTTP.new(host, 443)
       req.use_ssl = true
       req.verify_mode = OpenSSL::SSL::VERIFY_NONE
       req
